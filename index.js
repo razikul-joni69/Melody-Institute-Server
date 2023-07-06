@@ -30,6 +30,14 @@ async function main() {
             res.send('🆗 Melody Institute Server in running!')
         })
 
+        const userCollection = client.db("melody-institute").collection("users")
+
+        // Users
+        app.post('/api/v1/user', async (req, res) => {
+            const user = req.body;
+            const result = await userCollection.insertOne(user)
+            res.send(result)
+        })
 
     }catch (e) {
         console.log(e.message)
