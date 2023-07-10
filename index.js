@@ -8,7 +8,10 @@ const app = express();
 
 app.use(cors())
 app.use(express.json())
-app.use(express.urlencoded({extended: true}))
+app.use(express.urlencoded({ extended: true }))
+
+//TODO: temp json files
+const classes = require("./data/classes.json")
 
 const client = new MongoClient(process.env.MONGODB_URI, {
     serverApi: {
@@ -31,15 +34,27 @@ async function main() {
         })
 
         const userCollection = client.db("melody-institute").collection("users")
+        const classCollection = client.db("melody-institute").collection("classes")
 
-        // Users
+        // INFO: Users
         app.post('/api/v1/user', async (req, res) => {
             const user = req.body;
             const result = await userCollection.insertOne(user)
             res.send(result)
         })
 
-    }catch (e) {
+        // INFO: Classes
+        app.get("/api/v1/classes", async (req, res) => {
+            res.send(classes)
+        });
+
+        app.post("/api/v1/classes", async (req, res) => {
+            const cls = req.body;
+            const result = await classCollection.insertOne(cls);
+            res.send(result);
+        })
+
+    } catch (e) {
         console.log(e.message)
     }
 }
