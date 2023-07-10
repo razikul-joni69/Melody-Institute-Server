@@ -37,6 +37,17 @@ async function main() {
         const classCollection = client.db("melody-institute").collection("classes")
 
         // INFO: Users
+        app.get('/api/v1/users', async (req, res) => {
+            const result = await userCollection.find({}).toArray()
+            res.send(result)
+        });
+
+        app.get('/api/v1/users/:email', async (req, res) => {
+            const email = req.params.email;
+            const result = await userCollection.findOne({ email: email }, { projection: { _id: 0, role: 1 } })
+            res.send(result)
+        });
+
         app.post('/api/v1/user', async (req, res) => {
             const user = req.body;
             const result = await userCollection.insertOne(user)
