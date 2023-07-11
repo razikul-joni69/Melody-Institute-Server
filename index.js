@@ -56,13 +56,26 @@ async function main() {
 
         // INFO: Classes
         app.get("/api/v1/classes", async (req, res) => {
-            res.send(classes)
+            const result = await classCollection.find({}).toArray();
+            res.send(result);
         });
 
         app.post("/api/v1/classes", async (req, res) => {
             const cls = req.body;
             const result = await classCollection.insertOne(cls);
             res.send(result);
+        });
+
+        app.patch("/api/v1/classes/:id", async (req, res) => {
+            const id = req.params.id;
+            const data = req.body;
+            if (data.status === "approved") {
+                const result = await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { status: data.status } });
+                res.send(result);
+            } else {
+                const result = await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { status: data.status, feedback: data.feedback } });
+                res.send(result);
+            }
         })
 
     } catch (e) {
