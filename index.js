@@ -52,6 +52,15 @@ async function main() {
             const user = req.body;
             const result = await userCollection.insertOne(user)
             res.send(result)
+        });
+
+        app.patch("/api/v1/users/:id", async (req, res) => {
+            const id = req.params.id;
+            const data = req.body;
+            const result = await userCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { role: data.role } });
+            console.log(data.role);
+            res.send(result);
+
         })
 
         // INFO: Classes
