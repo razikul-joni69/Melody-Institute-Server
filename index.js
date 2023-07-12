@@ -35,6 +35,7 @@ async function main() {
 
         const userCollection = client.db("melody-institute").collection("users")
         const classCollection = client.db("melody-institute").collection("classes")
+        const cartCollection = client.db("melody-institute").collection("cart")
 
         // INFO: Users
         app.get('/api/v1/users', async (req, res) => {
@@ -44,11 +45,11 @@ async function main() {
 
         app.get('/api/v1/users/:email', async (req, res) => {
             const email = req.params.email;
-            const result = await userCollection.findOne({ email: email }, { projection: { _id: 0, role: 1 } })
+            const result = await userCollection.findOne({ email: email }, { projection: { _id: 0, role: 1, email: 1 } })
             res.send(result)
         });
 
-        app.post('/api/v1/user', async (req, res) => {
+        app.post('/api/v1/users', async (req, res) => {
             const user = req.body;
             const result = await userCollection.insertOne(user)
             res.send(result)
@@ -60,7 +61,6 @@ async function main() {
             const result = await userCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { role: data.role } });
             console.log(data.role);
             res.send(result);
-
         })
 
         // INFO: Classes
@@ -85,6 +85,26 @@ async function main() {
                 const result = await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { status: data.status, feedback: data.feedback } });
                 res.send(result);
             }
+        });
+
+        // INFO: cart services
+        app.get("/api/v1/cart/:email", async (req, res) => {
+            const email = req.params.email;
+            const result = await cartCollection.find({ student_email: email }).toArray();
+            res.send(result)
+        });
+
+        app.post("/api/v1/cart", (req, res) => {
+            const cls = req.body;
+            const result = cartCollection.insertOne(cls);
+            res.send(result)
+        });
+
+        app.patch("/api/v1/cart/:email", async (req, res) => {
+            const email = req.params.email;
+            const data = req.body;
+            const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $set: { classes: data.classes } });
+            res.send(result);
         })
 
     } catch (e) {
