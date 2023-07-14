@@ -107,6 +107,13 @@ async function main() {
             res.send(result);
         })
 
+        app.delete("/api/v1/cart/", async (req, res) => {
+            const email = req.query.email;
+            const id = req.query.id;
+            const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $pull: { classes: { _id: id } } });
+            res.send(result);
+        })
+
     } catch (e) {
         console.log(e.message)
     }
