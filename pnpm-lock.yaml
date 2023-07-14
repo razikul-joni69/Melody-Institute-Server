@@ -17,6 +17,9 @@ dependencies:
   mongodb:
     specifier: ^5.6.0
     version: 5.6.0
+  stripe:
+    specifier: ^12.13.0
+    version: 12.13.0
 
 packages:
 
@@ -506,6 +509,14 @@ packages:
   /statuses@2.0.1:
     resolution: {integrity: sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ==}
     engines: {node: '>= 0.8'}
+    dev: false
+
+  /stripe@12.13.0:
+    resolution: {integrity: sha512-mn7CxL71FCRWkQp33jcJ7+xfRF7HGzPYZlq2c87U+6kxL1qd7f/N3S1g1E5uaSWe83V5v3jN/IiWqg9y8+kWRw==}
+    engines: {node: '>=12.*'}
+    dependencies:
+      '@types/node': 20.3.3
+      qs: 6.11.0
     dev: false
 
   /toidentifier@1.0.1:

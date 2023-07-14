@@ -11,7 +11,11 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 //TODO: temp json files
-const classes = require("./data/classes.json")
+const classes = require("./data/classes.json");
+const { Long } = require('mongodb');
+
+// Payment options
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY)
 
 const client = new MongoClient(process.env.MONGODB_URI, {
     serverApi: {
@@ -69,6 +73,13 @@ async function main() {
             res.send(result);
         });
 
+        app.get("/api/v1/classes/:classId", async (req, res) => {
+            const classId = req.params.classId;
+            const result = await classCollection.find({ _id: new ObjectId(classId) }).toArray();
+            console.log(result);
+            res.send(result);
+        });
+
         app.post("/api/v1/classes", async (req, res) => {
             const cls = req.body;
             const result = await classCollection.insertOne(cls);
@@ -112,6 +123,43 @@ async function main() {
             const id = req.query.id;
             const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $pull: { classes: { _id: id } } });
             res.send(result);
+        })
+
+        app.post("/api/v1/payment", async (req, res) => {
+            const price = req.body.price;
+            const ammount = price * 100;
+            console.log(price, ammount);
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: ammount,
+                currency: "usd",
+                payment_method_types: ["card"],
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        })
+
+        // Create Payment Intent
+        app.post("/create-payment-intent", async (req, res) => {
+            console.log("hitted");
+            const { price } = req.body;
+            const ammount = price * 100;
+            console.log(price, ammount);
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: ammount,
+                currency: "usd",
+                payment_method_types: ["card"],
+                automatic_payment_methods: {
+                    enabled: true,
+                },
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
         })
 
     } catch (e) {
