@@ -11,8 +11,8 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 //TODO: temp json files
-const classes = require("./data/classes.json");
-const { Long } = require('mongodb');
+// const classes = require("./data/classes.json");
+// const { Long } = require('mongodb');
 
 // Payment options
 const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY)
@@ -39,7 +39,8 @@ async function main() {
 
         const userCollection = client.db("melody-institute").collection("users")
         const classCollection = client.db("melody-institute").collection("classes")
-        const cartCollection = client.db("melody-institute").collection("cart")
+        const cartCollection = client.db("melody-institute").collection("student_cart")
+        // const paymentCollection = client.db("melody-institute").collection("payments")
 
         // INFO: Users
         app.get('/api/v1/users', async (req, res) => {
@@ -76,7 +77,6 @@ async function main() {
         app.get("/api/v1/classes/:classId", async (req, res) => {
             const classId = req.params.classId;
             const result = await classCollection.find({ _id: new ObjectId(classId) }).toArray();
-            console.log(result);
             res.send(result);
         });
 
@@ -114,47 +114,39 @@ async function main() {
         app.patch("/api/v1/cart/:email", async (req, res) => {
             const email = req.params.email;
             const data = req.body;
-            const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $set: { classes: data.classes } });
-            res.send(result);
+            const { class_type, id } = req.query;
+            if (class_type === "selected") {
+                const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $set: { selected_classes: data.classes } });
+                res.send(result);
+            } else if (class_type === "enrolled") {
+                // INFO: added to enrolled classes array
+                const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $set: { enrolled_classes: data.classes } });
+                // INFO: delete from selected classes array
+                const deleted = await cartCollection.findOneAndUpdate({ student_email: email }, { $pull: { selected_classes: { _id: id } } });
+                // INFO: update class information
+                const findCls = await classCollection.find({ _id: new ObjectId(id) }).toArray();
+                newAvailableSeats = findCls[0]?.available_seats - 1;
+                newEnrolledStudents = findCls[0]?.enrolled_students + 1;
+                const cls = await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { available_seats: newAvailableSeats, enrolled_students: newEnrolledStudents } });
+                res.send(result);
+            }
         })
 
         app.delete("/api/v1/cart/", async (req, res) => {
             const email = req.query.email;
             const id = req.query.id;
-            const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $pull: { classes: { _id: id } } });
+            const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $pull: { selected_classes: { _id: id } } });
             res.send(result);
         })
 
-        app.post("/api/v1/payment", async (req, res) => {
-            const price = req.body.price;
-            const ammount = price * 100;
-            console.log(price, ammount);
-
-            const paymentIntent = await stripe.paymentIntents.create({
-                amount: ammount,
-                currency: "usd",
-                payment_method_types: ["card"],
-            });
-
-            res.send({
-                clientSecret: paymentIntent.client_secret,
-            });
-        })
-
-        // Create Payment Intent
-        app.post("/create-payment-intent", async (req, res) => {
-            console.log("hitted");
+        app.post("/api/v1/create-payment-intent", async (req, res) => {
             const { price } = req.body;
             const ammount = price * 100;
-            console.log(price, ammount);
 
             const paymentIntent = await stripe.paymentIntents.create({
                 amount: ammount,
                 currency: "usd",
                 payment_method_types: ["card"],
-                automatic_payment_methods: {
-                    enabled: true,
-                },
             });
 
             res.send({
@@ -162,8 +154,8 @@ async function main() {
             });
         })
 
-    } catch (e) {
-        console.log(e.message)
+    } catch (err) {
+        console.log(err.message)
     }
 }
 
