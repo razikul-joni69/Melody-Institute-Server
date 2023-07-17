@@ -10,10 +10,6 @@ app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-//TODO: temp json files
-// const classes = require("./data/classes.json");
-// const { Long } = require('mongodb');
-
 // Payment options
 const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY)
 
@@ -40,7 +36,6 @@ async function main() {
         const userCollection = client.db("melody-institute").collection("users")
         const classCollection = client.db("melody-institute").collection("classes")
         const cartCollection = client.db("melody-institute").collection("student_cart")
-        // const paymentCollection = client.db("melody-institute").collection("payments")
 
         // INFO: Users
         app.get('/api/v1/users', async (req, res) => {
@@ -50,7 +45,7 @@ async function main() {
 
         app.get('/api/v1/users/:email', async (req, res) => {
             const email = req.params.email;
-            const result = await userCollection.findOne({ email: email }, { projection: { _id: 0, role: 1, email: 1 } })
+            const result = await userCollection.findOne({ email: email })
             res.send(result)
         });
 
@@ -60,23 +55,43 @@ async function main() {
             res.send(result)
         });
 
-        app.patch("/api/v1/users/:id", async (req, res) => {
-            const id = req.params.id;
-            const data = req.body;
-            const result = await userCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { role: data.role } });
-            console.log(data.role);
+        app.patch("/api/v1/users/:email", async (req, res) => {
+            console.log(req.query);
+            const { email } = req.params;
+            const { phone, address, gender } = req.body;
+            if (req.query.addNewClass) {
+                const newClass = await userCollection.findOne({ email: email });
+                const updatedClass = newClass.total_classes + 1
+                const result = await userCollection.findOneAndUpdate({ email: email }, { $set: { total_classes: updatedClass } });
+                res.send(result);
+            } else {
+                const result = await userCollection.findOneAndUpdate({ email: email }, { $set: { phone: phone, address: address, gender: gender } });
+                res.send(result);
+            }
+        });
+
+        app.patch("/api/v1/users", async (req, res) => {
+            const { id } = req.query;
+            const { role } = req.body;
+            const result = await userCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { role: role } });
             res.send(result);
         })
 
-        // INFO: Classes
+        // INFO: Classe services
         app.get("/api/v1/classes", async (req, res) => {
-            const result = await classCollection.find({}).toArray();
-            res.send(result);
+            const { classId } = req.query;
+            if (classId) {
+                const result = await classCollection.find({ _id: new ObjectId(classId) }).toArray();
+                res.send(result);
+            } else {
+                const result = await classCollection.find({}).toArray();
+                res.send(result);
+            }
         });
 
-        app.get("/api/v1/classes/:classId", async (req, res) => {
-            const classId = req.params.classId;
-            const result = await classCollection.find({ _id: new ObjectId(classId) }).toArray();
+        app.get("/api/v1/classes/:email", async (req, res) => {
+            const { email } = req.params;
+            const result = await classCollection.find({ instructor_email: email }).toArray();
             res.send(result);
         });
 
@@ -88,12 +103,13 @@ async function main() {
 
         app.patch("/api/v1/classes/:id", async (req, res) => {
             const id = req.params.id;
-            const data = req.body;
-            if (data.status === "approved") {
-                const result = await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { status: data.status } });
+            const { status, rejectionFeedback } = req.body;
+            if (status === "approved") {
+                await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $unset: { feedback: "" } });
+                const result = await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { status: status } });
                 res.send(result);
-            } else {
-                const result = await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { status: data.status, feedback: data.feedback } });
+            } else if (status === "rejected") {
+                const result = await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { status: status, feedback: rejectionFeedback } });
                 res.send(result);
             }
         });
@@ -105,9 +121,9 @@ async function main() {
             res.send(result)
         });
 
-        app.post("/api/v1/cart", (req, res) => {
+        app.post("/api/v1/cart", async (req, res) => {
             const cls = req.body;
-            const result = cartCollection.insertOne(cls);
+            const result = await cartCollection.insertOne(cls);
             res.send(result)
         });
 
@@ -122,12 +138,16 @@ async function main() {
                 // INFO: added to enrolled classes array
                 const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $set: { enrolled_classes: data.classes } });
                 // INFO: delete from selected classes array
-                const deleted = await cartCollection.findOneAndUpdate({ student_email: email }, { $pull: { selected_classes: { _id: id } } });
+                await cartCollection.findOneAndUpdate({ student_email: email }, { $pull: { selected_classes: { _id: id } } });
                 // INFO: update class information
                 const findCls = await classCollection.find({ _id: new ObjectId(id) }).toArray();
                 newAvailableSeats = findCls[0]?.available_seats - 1;
                 newEnrolledStudents = findCls[0]?.enrolled_students + 1;
-                const cls = await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { available_seats: newAvailableSeats, enrolled_students: newEnrolledStudents } });
+                await classCollection.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { available_seats: newAvailableSeats, enrolled_students: newEnrolledStudents } });
+                // INFO: update class information
+                const newClass = await userCollection.findOne({ email: email });
+                const updatedClass = newClass.enrolled_courses + 1
+                await userCollection.findOneAndUpdate({ email: email }, { $set: { enrolled_courses: updatedClass } });
                 res.send(result);
             }
         })
