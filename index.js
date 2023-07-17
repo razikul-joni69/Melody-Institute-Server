@@ -20,6 +20,7 @@ const client = new MongoClient(process.env.MONGODB_URI, {
         deprecationErrors: true,
     }
 });
+
 async function main() {
     try {
         await client.connect()
@@ -56,7 +57,6 @@ async function main() {
         });
 
         app.patch("/api/v1/users/:email", async (req, res) => {
-            console.log(req.query);
             const { email } = req.params;
             const { phone, address, gender } = req.body;
             if (req.query.addNewClass) {
@@ -77,7 +77,7 @@ async function main() {
             res.send(result);
         })
 
-        // INFO: Classe services
+        // INFO: Classes services
         app.get("/api/v1/classes", async (req, res) => {
             const { classId } = req.query;
             if (classId) {
@@ -135,8 +135,6 @@ async function main() {
                 const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $set: { selected_classes: data.classes } });
                 res.send(result);
             } else if (class_type === "enrolled") {
-                // INFO: added to enrolled classes array
-                const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $set: { enrolled_classes: data.classes } });
                 // INFO: delete from selected classes array
                 await cartCollection.findOneAndUpdate({ student_email: email }, { $pull: { selected_classes: { _id: id } } });
                 // INFO: update class information
@@ -148,6 +146,13 @@ async function main() {
                 const newClass = await userCollection.findOne({ email: email });
                 const updatedClass = newClass.enrolled_courses + 1
                 await userCollection.findOneAndUpdate({ email: email }, { $set: { enrolled_courses: updatedClass } });
+                // INFO: update instructors total students
+                const insEmail = data.classes[data.classes.length - 1].instructor_email;
+                const instructor = await userCollection.findOne({ email: insEmail });
+                const updatedTotalStudents = instructor.total_students + 1;
+                await userCollection.findOneAndUpdate({ email: insEmail }, { $set: { total_students: updatedTotalStudents } });
+                // INFO: added new class to enrolled classes array
+                const result = await cartCollection.findOneAndUpdate({ student_email: email }, { $set: { enrolled_classes: data.classes } });
                 res.send(result);
             }
         })
@@ -180,4 +185,3 @@ async function main() {
 }
 
 main()
-
